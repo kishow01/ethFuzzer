@@ -10,7 +10,7 @@ try:
     """ethFuzzer.create_testc(testc_source_code, testc_contract_name, testc_solidity_version)"""
     ethFuzzer.create_testc(erc_source_code, erc_contrace_name, erc_solidity_version)
         
-    for trail in range(0, 10):
+    for trail in range(0, 100):
         print(' - trail #' + str(trail) + ':', end=' ')
         
         # create atk contract and initialize variable
@@ -18,7 +18,7 @@ try:
         ethFuzzer.init_mfuzzer(variables)
 
         # deploy atk contract and execute it by atkc_deployer
-        for step in range(0, 100):
+        for step in range(0, 50):
             (evm_exception, atkc_source_code) = ethFuzzer.run(source_code_without_parameters)
             if evm_exception:
                 break
