@@ -149,9 +149,18 @@ class MutationFuzzer:
             'structLogs': []
         }
 
+        # store the opcode in the list temporarily.
+        # Since its possible that current call is being revert,
+        # if revert opcode appears, delete every thing in current_opcode_list,
+        # if stop opcode or return opcode appears, store every thing in current_opcode_list into new_trace.
+        current_opcode_list = []
         for log in trace['structLogs']:
             if (str(log['pc']) + '_' + log['op']) in testc_pc_op_set:
-                new_trace['structLogs'].append(log)
+                current_opcode_list.append(log)
+                if log['op'] == 'STOP' or log['op'] == 'RETURN':
+                    new_trace['structLogs'] += current_opcode_list
+                elif log['op'] == 'REVERT':
+                    current_opcode_list = []
 
         return new_trace
 

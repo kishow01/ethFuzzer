@@ -66,7 +66,7 @@ class EthFuzzer:
                                     self.bridge, 
                                     self.privateKey_of_EOAs[self.atkc_deployer_index],
                                     self.testc_pc_op_set)
-        return (coverage == set(), source_code)
+        return (coverage, source_code)
 
     def get_cumulative_coverage(self) -> Set[str]:
         cumulative_coverage = set() 

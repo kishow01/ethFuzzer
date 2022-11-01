@@ -23,7 +23,7 @@ contract Bank {
 }
 """
 
-erc_contrace_name = 'LcdToken'
+erc_contract_name = 'LcdToken'
 erc_solidity_version = '0.6.0'
 erc_source_code = """
 pragma solidity 0.6.0;

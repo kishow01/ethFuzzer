@@ -7,7 +7,10 @@ class Ganache:
         from time import sleep
 
         try:
-            self.proc = subprocess.Popen(['ganache-cli', '--account_keys_path', DEFAULT_BLOCKCHAIN_KEY_LOCATION, '--port', str(DEFAULT_BLOCKCHAIN_PORT)], 
+            self.proc = subprocess.Popen(['ganache-cli', 
+                                          '--account_keys_path', DEFAULT_BLOCKCHAIN_KEY_LOCATION, 
+                                          '--port', str(DEFAULT_BLOCKCHAIN_PORT), 
+                                          '--defaultBalanceEther', str(1000000)],
                                            stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
             sleep(3)
         except FileNotFoundError:
