@@ -82,7 +82,8 @@ class MutationFuzzer:
         self.checksum_address_list = checksum_address_list
         self.inputs: List[str] = []
         self.to_checksum_function = to_checksum_function
-        self._reset()
+        self.coverages_seen = set()
+        self.population = []
 
     def initialize_all_variable_within_seed(self) -> None:
         assert len(self.seeds) == 1
@@ -97,12 +98,6 @@ class MutationFuzzer:
             else:
                 # Treat variable.data as a string
                 variable.data = ''
-        
-
-    def _reset(self) -> None:
-        self.seed_index = 0
-        self.coverages_seen = set()
-        self.population = []
 
     def mutate(self, seed: Seed) -> str:
         mutators = [
@@ -130,18 +125,13 @@ class MutationFuzzer:
 
     def _create_candidate(self) -> Seed:
         candidate = self.scheduler.choose(self.population)
-
-        #steps = random.randint(self.min_mutations, self.max_mutations)
-        #for i in range(steps):
-        #    candidate = self.mutate(candidate)
         candidate = self.mutate(candidate)
 
         return candidate
 
     def fuzz(self) -> Seed:
-        if self.seed_index < len(self.seeds):
-            choosen_seed = self.seeds[self.seed_index]
-            self.seed_index += 1
+        if len(self.seeds):
+            choosen_seed = self.seeds.pop()
         else:
             choosen_seed = self._create_candidate()
 
@@ -178,7 +168,11 @@ class MutationFuzzer:
         source_code = self._filling_atkcode_with_seed(source_code, choosen_seed)
 
         # Deploy atkc
-        (atkc_address, atkc_abi) = bridge.web3_deploy_attacker_contract(sender_privatekey, source_code)
+        try:
+            (atkc_address, atkc_abi) = bridge.web3_deploy_attacker_contract(sender_privatekey, source_code)
+        except Exception as e:
+            print('EVM Runtime Exception in deploy atkc:', e)
+            return (set(), source_code)
 
         # Execute atkc
         stateMutability = [abi for abi in atkc_abi if 'name' in abi and abi['name'] == 'test'][0]['stateMutability']
@@ -190,8 +184,7 @@ class MutationFuzzer:
         try:
             tx_hash = bridge.web3_call(atkc_address, sender_privatekey, value)
         except Exception as e:
-            print('EVM Runtime Exception:', e)
-            self.seed_index -= 1
+            print('EVM Runtime Exception in execute atkc:', e)
             return (set(), source_code)
 
         # tracing transaction to get coverage information

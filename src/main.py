@@ -19,8 +19,9 @@ try:
 
         # deploy atk contract and execute it by atkc_deployer
         for step in range(0, 50):
-            (evm_exception, atkc_source_code) = ethFuzzer.run(source_code_without_parameters)
-            if evm_exception:
+            (evm_exception_occurred, atkc_source_code) = ethFuzzer.run(source_code_without_parameters)
+            if step == 0 and evm_exception_occurred:
+                # if first run is reverted, then discard this atk contract
                 break
 
             cumulative_coverage = ethFuzzer.get_cumulative_coverage()
@@ -34,8 +35,7 @@ try:
         print('[*] testc_coverage so far:', len(ethFuzzer.testc_coverage) / ethFuzzer.testc_opcode_number)
 
     print('[*]testc_coverage:', len(ethFuzzer.testc_coverage) / ethFuzzer.testc_opcode_number)
-except Exception as e:
-    print('EthFuzzer Exception:', e)
-    print(e)
+#except Exception as e:
+#    print('EthFuzzer Exception:', e)
 finally:
     ethFuzzer.end()
