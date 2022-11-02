@@ -7,6 +7,7 @@ from fuzzer import GrammarFuzzer, MutationFuzzer
 from scheduler import Variable, Seed, Scheduler
 from linker import Linker
 from grammar import SOLIDITY_GRAMMAR
+from oracle import InsecureArithmeticOracle
 from util import DEFAULT_BLOCKCHAIN_KEY_LOCATION, get_pc_op_set, get_opcode_number
 
 class EthFuzzer:
@@ -27,6 +28,8 @@ class EthFuzzer:
         # Start ganache server and read key.json
         self.ganache = Ganache()
         self.ganache.start()
+
+        self.insecureArithmeticOracle: InsecureArithmeticOracle = InsecureArithmeticOracle(self.bridge)
 
         with open(DEFAULT_BLOCKCHAIN_KEY_LOCATION) as file:
             accounts = json.load(file)
@@ -62,11 +65,11 @@ class EthFuzzer:
         self.mfuzzer.initialize_all_variable_within_seed()
     
     def run(self, source_code_without_parameters) -> Tuple[Set[str], str]:
-        (coverage, source_code) = self.mfuzzer.run(source_code_without_parameters, 
-                                    self.bridge, 
-                                    self.privateKey_of_EOAs[self.atkc_deployer_index],
-                                    self.testc_pc_op_set)
-        return (coverage, source_code)
+        (coverage, testc_trace, source_code, tx_hash) = self.mfuzzer.run(source_code_without_parameters, 
+                                           self.bridge, 
+                                           self.privateKey_of_EOAs[self.atkc_deployer_index],
+                                           self.testc_pc_op_set)
+        return (coverage, testc_trace, source_code, tx_hash)
 
     def get_cumulative_coverage(self) -> Set[str]:
         cumulative_coverage = set() 
@@ -74,5 +77,15 @@ class EthFuzzer:
             cumulative_coverage |= cov
         return cumulative_coverage
 
-    def end(self):
+    def oracle_detect(self, testc_trace, atkc_source_code: str, tx_hash: str):
+        self.insecureArithmeticOracle.detect(testc_trace, atkc_source_code, tx_hash)
+
+    def result(self):
+        return (self.insecureArithmeticOracle.get_result())
+
+    def output_report(self):
+        if self.insecureArithmeticOracle.breach_exists():
+            self.insecureArithmeticOracle.output_report()
+
+    def end(self): 
         self.ganache.end()

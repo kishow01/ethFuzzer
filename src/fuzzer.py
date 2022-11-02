@@ -155,7 +155,7 @@ class MutationFuzzer:
         # if stop opcode or return opcode appears, store every thing in current_opcode_list into new_trace.
         current_opcode_list = []
         for log in trace['structLogs']:
-            if (str(log['pc']) + '_' + log['op']) in testc_pc_op_set:
+            if log['depth'] == 1 and (str(log['pc']) + '_' + log['op']) in testc_pc_op_set:
                 current_opcode_list.append(log)
                 if log['op'] == 'STOP' or log['op'] == 'RETURN':
                     new_trace['structLogs'] += current_opcode_list
@@ -181,7 +181,7 @@ class MutationFuzzer:
             (atkc_address, atkc_abi) = bridge.web3_deploy_attacker_contract(sender_privatekey, source_code)
         except Exception as e:
             print('EVM Runtime Exception in deploy atkc:', e)
-            return (set(), source_code)
+            return (set(), '', source_code, '')
 
         # Execute atkc
         stateMutability = [abi for abi in atkc_abi if 'name' in abi and abi['name'] == 'test'][0]['stateMutability']
@@ -194,14 +194,14 @@ class MutationFuzzer:
             tx_hash = bridge.web3_call(atkc_address, sender_privatekey, value)
         except Exception as e:
             print('EVM Runtime Exception in execute atkc:', e)
-            return (set(), source_code)
+            return (set(), '', source_code, '')
 
         # tracing transaction to get coverage information
         # coverage information is first processed to remove opcode that are not part of this smart contract to calculate coverage
         trace = bridge.debug_traceTransaction(tx_hash)
-        trace_with_essential_code = self._delete_unessential_opcode_from_trace(trace, testc_pc_op_set)
+        testc_trace = self._delete_unessential_opcode_from_trace(trace, testc_pc_op_set)
     
-        coverage = self._get_coverage(trace_with_essential_code)
+        coverage = self._get_coverage(testc_trace)
         path_id = self.scheduler.getPathID(coverage)
         self.scheduler.update_path_frequency(path_id)
 
@@ -214,7 +214,7 @@ class MutationFuzzer:
             self.coverages_seen.add(new_coverage)
             self.population.append(seed)
         
-        return (coverage, source_code)
+        return (coverage, testc_trace, source_code, tx_hash)
         
 
 class GrammarFuzzer:
