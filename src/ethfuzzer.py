@@ -8,7 +8,7 @@ from scheduler import Variable, Seed, Scheduler
 from linker import Linker
 from grammar import SOLIDITY_GRAMMAR
 from oracle import InsecureArithmeticOracle
-from util import DEFAULT_BLOCKCHAIN_KEY_LOCATION, get_pc_op_set, get_opcode_number
+from util import DEFAULT_BLOCKCHAIN_KEY_LOCATION, get_opcode_number
 
 class EthFuzzer:
     def __init__(self, 
@@ -47,7 +47,6 @@ class EthFuzzer:
                                                                                      source_code,
                                                                                      contract_name,
                                                                                      compiler_version)
-        self.testc_pc_op_set = get_pc_op_set(self.bridge.web3_getCode(self.testc_address).hex())
         self.testc_opcode_number = get_opcode_number(self.bridge.web3_getCode(self.testc_address).hex())
 
 
@@ -68,7 +67,7 @@ class EthFuzzer:
         (coverage, testc_trace, source_code, tx_hash) = self.mfuzzer.run(source_code_without_parameters, 
                                            self.bridge, 
                                            self.privateKey_of_EOAs[self.atkc_deployer_index],
-                                           self.testc_pc_op_set)
+                                           self.testc_address)
         return (coverage, testc_trace, source_code, tx_hash)
 
     def get_cumulative_coverage(self) -> Set[str]:

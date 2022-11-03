@@ -1,4 +1,3 @@
-from inspect import trace
 from typing import Union, Tuple, Dict, List, Set, Optional, Callable, Any
 
 import random
@@ -142,7 +141,7 @@ class MutationFuzzer:
             source_code = source_code.replace(variable.label, str(variable.data), 1)
         return source_code
 
-    def _delete_unessential_opcode_from_trace(self, trace, testc_pc_op_set: set):
+    def _delete_unessential_opcode_from_trace(self, trace, testc_address_last_4bytes):
         new_trace = {
             'gas': trace['gas'],
             'returnValue': trace['returnValue'],
@@ -151,17 +150,45 @@ class MutationFuzzer:
 
         # store the opcode in the list temporarily.
         # Since its possible that current call is being revert,
-        # if revert opcode appears, delete every thing in current_opcode_list,
-        # if stop opcode or return opcode appears, store every thing in current_opcode_list into new_trace.
-        current_opcode_list = []
-        for log in trace['structLogs']:
-            if log['depth'] == 1 and (str(log['pc']) + '_' + log['op']) in testc_pc_op_set:
-                current_opcode_list.append(log)
-                if log['op'] == 'STOP' or log['op'] == 'RETURN':
-                    new_trace['structLogs'] += current_opcode_list
-                elif log['op'] == 'REVERT':
-                    current_opcode_list = []
+        # Once all logs have been recorded, check if any revert exists
+        # STOP, REVERT, RETURN THESE THREE OPCODE HAVE NOTHING TO DO WITH REDUCING DEPTH
+        level_in_testc = {
+            0: False
+        }
 
+        log_contain_reverted_code = []
+
+        for index in range(len(trace['structLogs']) - 1):
+            log = trace['structLogs'][index]
+            next_log = trace['structLogs'][index + 1]
+            current_level = log['depth']
+            if level_in_testc[current_level]:
+                log_contain_reverted_code.append(log)
+
+            if (log['op'] == 'CALL' or log['op'] == 'CALLCODE' or log['op'] == 'DELEGATECALL') and testc_address_last_4bytes.lower() in log['stack'][len(log['stack']) - 2]:
+                if log['pc'] + 1 != next_log['pc']:
+                    level_in_testc[next_log['depth']] = True
+            elif (log['op'] == 'CALL' or log['op'] == 'CALLCODE' or log['op'] == 'DELEGATECALL') and testc_address_last_4bytes.lower() not in log['stack'][len(log['stack']) - 2]:
+                level_in_testc[next_log['depth']] = False
+
+        # Delete reverted code from log_contain_reverted_code
+        # I dont know how to write python :(
+        # dont allow to delete item in iteration, so i create a new list
+        tmp = []
+        for i in range(len(log_contain_reverted_code)):
+            tmp.append(log_contain_reverted_code[i])
+            if log_contain_reverted_code[i]['op'] == 'REVERT':
+                j = i
+                # remove item from i to ... until item[j]'s depth == item[i] depth and item[i] opcode == 'CALL'
+                while not (log_contain_reverted_code[i]['depth'] == log_contain_reverted_code[j]['depth'] and \
+                           log_contain_reverted_code[j]['op'] == 'CALL') and j == 0:
+                    tmp.remove(log_contain_reverted_code[j])
+                    print('remove: ', log_contain_reverted_code[j])
+                    j -= 1
+                    if j == 0:
+                        new_trace['structLogs'] = []
+                        return new_trace
+        new_trace['structLogs'] = tmp
         return new_trace
 
     def _get_coverage(self, trace) -> Set[str]:
@@ -170,7 +197,7 @@ class MutationFuzzer:
             coverage.add(str(log['pc']) + '_' + log['op'])
         return coverage
 
-    def run(self, source_code: str, bridge: Bridge, sender_privatekey: str, testc_pc_op_set: set):
+    def run(self, source_code: str, bridge: Bridge, sender_privatekey: str, testc_address: str):
         choosen_seed = self.fuzz()
 
         # filling $PARAMETER_x$ with appropriate variable in choosen_seed
@@ -199,8 +226,8 @@ class MutationFuzzer:
         # tracing transaction to get coverage information
         # coverage information is first processed to remove opcode that are not part of this smart contract to calculate coverage
         trace = bridge.debug_traceTransaction(tx_hash)
-        testc_trace = self._delete_unessential_opcode_from_trace(trace, testc_pc_op_set)
-    
+        testc_trace = self._delete_unessential_opcode_from_trace(trace, testc_address[-8:])
+
         coverage = self._get_coverage(testc_trace)
         path_id = self.scheduler.getPathID(coverage)
         self.scheduler.update_path_frequency(path_id)

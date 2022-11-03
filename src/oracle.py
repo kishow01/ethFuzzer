@@ -40,7 +40,7 @@ class InsecureArithmeticOracle:
             trace = testc_trace['structLogs'][t_index]
             next_trace = testc_trace['structLogs'][t_index + 1]
 
-            if trace['op'] == 'ADD':
+            if trace['op'] == 'ADD' and trace['pc'] + 1 == next_trace['pc']:
                 a = int(trace['stack'][len(trace['stack']) - 1], 16)
                 b = int(trace['stack'][len(trace['stack']) - 2], 16)
                 c = int(next_trace['stack'][len(next_trace['stack']) - 1], 16)
@@ -52,7 +52,7 @@ class InsecureArithmeticOracle:
                         'details': [trace, next_trace]
                     })
                     
-            elif trace['op'] == 'MUL':
+            elif trace['op'] == 'MUL' and trace['pc'] + 1 == next_trace['pc']:
                 a = int(trace['stack'][len(trace['stack']) - 1], 16)
                 b = int(trace['stack'][len(trace['stack']) - 2], 16)
                 c = int(next_trace['stack'][len(next_trace['stack']) - 1], 16)
