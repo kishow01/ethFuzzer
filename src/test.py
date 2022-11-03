@@ -1,7 +1,7 @@
 testc_contract_name = 'Bank'
-testc_solidity_version = '0.6.10'
+testc_solidity_version = '0.8.10'
 testc_source_code = """
-pragma solidity 0.6.10;
+pragma solidity 0.8.10;
 
 contract Bank {
 	address owner;
@@ -17,8 +17,8 @@ contract Bank {
 
     function withdraw(uint256 amount) public {
         require(balances[msg.sender] >= amount);
+        balances[msg.sender] -= amount;   
         msg.sender.call{value: amount}("");
-        balances[msg.sender] -= amount;
     }
 }
 """
@@ -89,5 +89,28 @@ contract LcdToken {
         
         return true;
     }   
+}
+"""
+
+
+overflow_contract_name = 'Overflow'
+overflow_solidity_version = '0.8.0'
+overflow_source_code = """
+pragma solidity 0.8.0;
+
+contract Overflow {
+    uint256 public num;
+    
+    constructor() public {
+        num = 0;
+    }
+    
+    function add() public {
+        num += 1;
+    }
+    
+    function sub() public {
+        num -= 1;
+    }
 }
 """

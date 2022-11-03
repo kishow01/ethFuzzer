@@ -155,15 +155,12 @@ class MutationFuzzer:
         level_in_testc = {
             0: False
         }
-
-        log_contain_reverted_code = []
-
         for index in range(len(trace['structLogs']) - 1):
             log = trace['structLogs'][index]
             next_log = trace['structLogs'][index + 1]
             current_level = log['depth']
             if level_in_testc[current_level]:
-                log_contain_reverted_code.append(log)
+                new_trace['structLogs'].append(log)
 
             if (log['op'] == 'CALL' or log['op'] == 'CALLCODE' or log['op'] == 'DELEGATECALL') and testc_address_last_4bytes.lower() in log['stack'][len(log['stack']) - 2]:
                 if log['pc'] + 1 != next_log['pc']:
@@ -171,24 +168,32 @@ class MutationFuzzer:
             elif (log['op'] == 'CALL' or log['op'] == 'CALLCODE' or log['op'] == 'DELEGATECALL') and testc_address_last_4bytes.lower() not in log['stack'][len(log['stack']) - 2]:
                 level_in_testc[next_log['depth']] = False
 
+        return new_trace
+
+    def _remove_reverted_code(self, testc_trace):
         # Delete reverted code from log_contain_reverted_code
         # I dont know how to write python :(
         # dont allow to delete item in iteration, so i create a new list
-        tmp = []
-        for i in range(len(log_contain_reverted_code)):
-            tmp.append(log_contain_reverted_code[i])
-            if log_contain_reverted_code[i]['op'] == 'REVERT':
+        new_trace = {
+            'gas': testc_trace['gas'],
+            'returnValue': testc_trace['returnValue'],
+            'structLogs': []
+        }
+
+        newLogs = []
+        for i in range(len(testc_trace['structLogs'])):
+            newLogs.append(testc_trace['structLogs'][i])
+            if testc_trace['structLogs'][i]['op'] == 'REVERT':
                 j = i
-                # remove item from i to ... until item[j]'s depth == item[i] depth and item[i] opcode == 'CALL'
-                while not (log_contain_reverted_code[i]['depth'] == log_contain_reverted_code[j]['depth'] and \
-                           log_contain_reverted_code[j]['op'] == 'CALL') and j == 0:
-                    tmp.remove(log_contain_reverted_code[j])
-                    print('remove: ', log_contain_reverted_code[j])
+                # remove item from i to 0, until log[j]['depth'] < log[i]['depth']
+                while testc_trace['structLogs'][i]['depth'] <= testc_trace['structLogs'][j]['depth']:
+                    if testc_trace['structLogs'][j] in newLogs:
+                        newLogs.remove(testc_trace['structLogs'][j])
                     j -= 1
                     if j == 0:
                         new_trace['structLogs'] = []
                         return new_trace
-        new_trace['structLogs'] = tmp
+        new_trace['structLogs'] = newLogs
         return new_trace
 
     def _get_coverage(self, trace) -> Set[str]:
@@ -227,8 +232,9 @@ class MutationFuzzer:
         # coverage information is first processed to remove opcode that are not part of this smart contract to calculate coverage
         trace = bridge.debug_traceTransaction(tx_hash)
         testc_trace = self._delete_unessential_opcode_from_trace(trace, testc_address[-8:])
+        testc_trace_without_reverted = self._remove_reverted_code(testc_trace)
 
-        coverage = self._get_coverage(testc_trace)
+        coverage = self._get_coverage(testc_trace_without_reverted)
         path_id = self.scheduler.getPathID(coverage)
         self.scheduler.update_path_frequency(path_id)
 
@@ -241,7 +247,7 @@ class MutationFuzzer:
             self.coverages_seen.add(new_coverage)
             self.population.append(seed)
         
-        return (coverage, testc_trace, source_code, tx_hash)
+        return (coverage, testc_trace_without_reverted, source_code, tx_hash)
         
 
 class GrammarFuzzer:

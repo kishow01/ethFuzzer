@@ -1,14 +1,17 @@
 from ethfuzzer import EthFuzzer
+from oracle import ReentrancyOracle
 
 # from test import testc_contract_name, testc_solidity_version, testc_source_code
-from test import erc_contract_name, erc_solidity_version, erc_source_code
+# from test import erc_contract_name, erc_solidity_version, erc_source_code
+from test import overflow_contract_name, overflow_solidity_version, overflow_source_code
 
 ethFuzzer = EthFuzzer()
 
 try:
     # create and deploy test contract
     # ethFuzzer.create_testc(testc_source_code, testc_contract_name, testc_solidity_version)
-    ethFuzzer.create_testc(erc_source_code, erc_contract_name, erc_solidity_version)
+    # ethFuzzer.create_testc(erc_source_code, erc_contract_name, erc_solidity_version)
+    ethFuzzer.create_testc(overflow_source_code, overflow_contract_name, overflow_solidity_version)
     print('[*] test contract deployed at:', ethFuzzer.testc_address)
         
     for trail in range(0, 100):
@@ -19,7 +22,7 @@ try:
         ethFuzzer.init_mfuzzer(variables)
 
         # deploy atk contract and execute it by atkc_deployer
-        for step in range(0, 30):
+        for step in range(0, 50):
             (coverage, testc_trace, atkc_source_code, tx_hash) = ethFuzzer.run(source_code_without_parameters)
             if step == 0 and coverage == set():
                 # if first run is reverted, then discard this atk contract
@@ -41,8 +44,10 @@ try:
     print('[*] testc_coverage:', len(ethFuzzer.testc_coverage) / ethFuzzer.testc_opcode_number)
     
     # Summary
-    (insecureArithmeticBreach) = ethFuzzer.result()
+    (insecureArithmeticBreach, reentrancyBreach) = ethFuzzer.result()
     print('[*] found {} breaches in InsecureArithmeticOracle'.format(len(insecureArithmeticBreach)))
+    print('[*] found {} breaches in ReentrancyOracle'.format(len(reentrancyBreach)))
+
 
     print('[*] output report')
     ethFuzzer.output_report()

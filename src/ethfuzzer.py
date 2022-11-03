@@ -7,7 +7,7 @@ from fuzzer import GrammarFuzzer, MutationFuzzer
 from scheduler import Variable, Seed, Scheduler
 from linker import Linker
 from grammar import SOLIDITY_GRAMMAR
-from oracle import InsecureArithmeticOracle
+from oracle import ReentrancyOracle, InsecureArithmeticOracle
 from util import DEFAULT_BLOCKCHAIN_KEY_LOCATION, get_opcode_number
 
 class EthFuzzer:
@@ -30,6 +30,7 @@ class EthFuzzer:
         self.ganache.start()
 
         self.insecureArithmeticOracle: InsecureArithmeticOracle = InsecureArithmeticOracle(self.bridge)
+        self.reentrancyOracle: ReentrancyOracle = ReentrancyOracle(self.bridge)
 
         with open(DEFAULT_BLOCKCHAIN_KEY_LOCATION) as file:
             accounts = json.load(file)
@@ -78,13 +79,17 @@ class EthFuzzer:
 
     def oracle_detect(self, testc_trace, atkc_source_code: str, tx_hash: str):
         self.insecureArithmeticOracle.detect(testc_trace, atkc_source_code, tx_hash)
+        self.reentrancyOracle.detect(testc_trace, atkc_source_code, tx_hash)
 
     def result(self):
-        return (self.insecureArithmeticOracle.get_result())
+        return (self.insecureArithmeticOracle.get_result(), self.reentrancyOracle.get_result())
 
     def output_report(self):
         if self.insecureArithmeticOracle.breach_exists():
             self.insecureArithmeticOracle.output_report()
+        
+        if self.reentrancyOracle.breach_exists():
+            self.reentrancyOracle.output_report()
 
     def end(self): 
         self.ganache.end()

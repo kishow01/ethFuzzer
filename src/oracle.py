@@ -11,8 +11,52 @@ def get_report_dir_size():
     return size
 
 class ReentrancyOracle:
-    def __init__(self):
-        pass
+    def __init__(self, bridge: Bridge) -> None:
+        self.bridge: Bridge = bridge
+        self.breaches = []
+
+    def detect(self, testc_trace, atkc_source_code, tx_hash) -> None:
+        after_call = False
+        for t_index in range(len(testc_trace['structLogs']) - 1):
+            trace = testc_trace['structLogs'][t_index]
+            next_trace = testc_trace['structLogs'][t_index + 1]
+
+            if trace['op'] == 'STOP':
+                after_call = False
+
+            if after_call and (trace['op'] == 'SLOAD' or
+                               trace['op'] == 'SSTORE' or
+                               trace['op'] == 'MLOAD' or
+                               trace['op'] == 'MSTORE'):
+                self.breaches.append({
+                    'event': 'reentrancy: state updated after call() function',
+                    'trigger': atkc_source_code,
+                    'transcation': self.bridge.eth_getTransactionByHash(tx_hash),
+                    'details': [trace, next_trace]
+                })
+
+            if next_trace['depth'] < trace['depth']:
+                after_call = True
+            elif next_trace['depth'] > trace['depth']:
+                after_call = False
+
+    def breach_exists(self):
+        return bool(self.breaches)
+
+    def get_result(self):
+        return self.breaches
+
+    def output_report(self):
+        for i in range(len(self.breaches)):
+            if get_report_dir_size() > REPORT_DIR_SIZE_LIMIT:
+                with open(DEFAULT_REPORT_DIR + '...', 'a') as f:
+                    pass
+                return
+
+            with open(DEFAULT_REPORT_DIR + self.breaches[i]['transcation']['to'] + '.txt', 'a') as f:
+                f.write(json.dumps(self.breaches[i], indent = 4))
+                f.write('\n-----------------------------------------\n')
+
 
 class InsecureArithmeticOracle:
     def __init__(self, bridge: Bridge) -> None:
@@ -26,16 +70,6 @@ class InsecureArithmeticOracle:
         return value
 
     def detect(self, testc_trace, atkc_source_code, tx_hash) -> None:
-        """tmp = []
-        for trace in testc_trace['structLogs']:
-            tmp.append({
-                'depth': trace['depth'],
-                'pc': trace['pc'],
-                'op': trace['op']
-            })
-        with open('debug.json', 'w') as f:
-            f.write(json.dumps(tmp, indent = 4))"""
-
         for t_index in range(len(testc_trace['structLogs']) - 1):
             trace = testc_trace['structLogs'][t_index]
             next_trace = testc_trace['structLogs'][t_index + 1]
@@ -112,4 +146,3 @@ class InsecureArithmeticOracle:
             with open(DEFAULT_REPORT_DIR + self.breaches[i]['transcation']['to'] + '.txt', 'a') as f:
                 f.write(json.dumps(self.breaches[i], indent = 4))
                 f.write('\n-----------------------------------------\n')
-       
