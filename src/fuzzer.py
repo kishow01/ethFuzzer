@@ -90,7 +90,10 @@ class MutationFuzzer:
         for variable in self.seeds[0].variable_list:
             if 'int' in variable.type:
                 # Treat variable.data as an integer
-                variable.data = 0
+                if 'uint' in variable.type:
+                    variable.data = random.randrange(0, pow(2, int(variable.type.replace('uint', ''))))
+                else:
+                    variable.data = random.randrange(-1 * pow(2, int(variable.type.replace('int', '') - 1)), pow(2, int(variable.type.replace('int', '') - 1)))
             elif 'address' in variable.type:
                 # Treat variable.data as an address
                 variable.data = random.choice(self.checksum_address_list)
