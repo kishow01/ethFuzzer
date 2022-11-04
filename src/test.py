@@ -47,11 +47,11 @@ if __name__ == '__main__':
         contract_name = test_contract['contract_name']
         solidity_version = test_contract['compiler_version']
 
-        ethFuzzer = EthFuzzer(gfuzz_iteration = 10, mfuzz_iteration = 10, divide_by_zero_detection_disable = True)
-        (insecureArithmeticBreach, reentrancyBreach) = ethFuzzer.run(source_code, contract_name, solidity_version, report_enable = False)
+        ethFuzzer = EthFuzzer(gfuzz_iteration = 30, mfuzz_iteration = 30, divide_by_zero_detection_disable = True)
+        (insecureArithmeticVulnerabilities, reentrancyVulnerabilities) = ethFuzzer.run(source_code, contract_name, solidity_version)
 
-        a: bool = bool(insecureArithmeticBreach)
-        r: bool = bool(reentrancyBreach)
+        a: bool = bool(insecureArithmeticVulnerabilities)
+        r: bool = bool(reentrancyVulnerabilities)
 
         with open('../result.txt', 'a') as f:
             f.write('[-] fuzzing {}\n'.format(test_contract['contract_name']))

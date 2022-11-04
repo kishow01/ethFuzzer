@@ -26,4 +26,4 @@ if __name__ == '__main__':
     }
     """
     ethFuzzer = EthFuzzer(gfuzz_iteration = 10, mfuzz_iteration = 10)
-    ethFuzzer.run(source_code, contract_name, solidity_version, True)
+    ethFuzzer.run(source_code, contract_name, solidity_version)

@@ -17,11 +17,13 @@ class EthFuzzer:
                  scheduler_exponent: int = 3,
                  gfuzz_iteration: int = 100,
                  mfuzz_iteration: int = 30,
-                 divide_by_zero_detection_disable: bool = False):
+                 divide_by_zero_detection_disable: bool = False,
+                 log: bool = True):
         self.testc_deployer_index = testc_deployer_index
         self.atkc_deployer_index = atkc_deployer_index
         self.gfuzz_iteration = gfuzz_iteration
         self.mfuzzer_iteration = mfuzz_iteration
+        self.log = log
 
         self.testc_coverage = set()
 
@@ -54,6 +56,8 @@ class EthFuzzer:
                                                                                      source_code,
                                                                                      contract_name,
                                                                                      compiler_version)
+        self.reentrancyOracle.setting(source_code, contract_name, self.testc_address)
+        self.insecureArithmeticOracle.setting(source_code, contract_name, self.testc_address)
         self.testc_opcode_number = get_opcode_number(self.bridge.web3_getCode(self.testc_address).hex())
 
 
@@ -74,21 +78,20 @@ class EthFuzzer:
             source_code: str,
             contract_name: str,
             solidity_version: str,
-            log: bool = True,
             report_enable: bool = True
             ):
-        insecureArithmeticBreach = []
-        reentrancyBreach = []
+        insecureArithmeticVulnerabilities = []
+        reentrancyVulnerabilities = []
         try:
             # create and deploy test contract
             self.create_testc(source_code, contract_name, solidity_version)
-            if log:
+            if self.log:
                 print('[*] test contract deployed at:', self.testc_address)
 
             trail = 0
             while trail < self.gfuzz_iteration:
                 first_run_being_reverted = False
-                if log:
+                if self.log:
                     print('[-] trail #' + str(trail) + ':', end=' ')
                 
                 # create atk contract and initialize variable
@@ -106,47 +109,50 @@ class EthFuzzer:
                     if coverage != set():
                         self.oracle_detect(testc_trace, atkc_source_code, tx_hash)
 
-                    if log:
+                    if self.log:
                         print('.', end='', flush=True)
-                if log:
+                if self.log:
                     print('')
 
                 # calculate overall coverage(cumulative_coverage)
                 cumulative_coverage = self.get_cumulative_coverage()
                 self.testc_coverage |= cumulative_coverage
-                if log:
+                if self.log:
                     print('[-] trail #' + str(trail) + ' coverage:', len(cumulative_coverage) / self.testc_opcode_number)
                     print('[=] testc_coverage so far:', len(self.testc_coverage) / self.testc_opcode_number)
 
                 if first_run_being_reverted == False:
                     trail += 1
-            if log:
+            if self.log:
                 print('[*] final testc_coverage:', len(self.testc_coverage) / self.testc_opcode_number)
 
             # Summary
-            (insecureArithmeticBreach, reentrancyBreach) = self.result()
+            (insecureArithmeticReport, reentrancyReport) = self.get_report()
+            insecureArithmeticVulnerabilities = insecureArithmeticReport['vulnerabilities']
+            reentrancyVulnerabilities = reentrancyReport['vulnerabilities']
 
-            print('[*] found {} breaches in InsecureArithmeticOracle'.format(len(insecureArithmeticBreach)))
-            print('[*] found {} breaches in ReentrancyOracle'.format(len(reentrancyBreach)))
+            print('[*] found {} vulnerailities in InsecureArithmeticOracle'.format(len(insecureArithmeticReport['vulnerabilities'])))
+            print('[*] found {} vulnerailities in ReentrancyOracle'.format(len(reentrancyReport['vulnerabilities'])))
 
             if report_enable:
-                print('[*] output report')
+                if self.log:
+                    print('[*] output report')
                 self.output_report()
         except Exception as e:
-            if log:
+            if self.log:
                 print('EthFuzzer Exception:', e)
         finally:
-            self.output_report()
             # Terminate ganache server, need to create a new ethFuzz object to fuzz other contract.
             self.end()
 
-            return (insecureArithmeticBreach, reentrancyBreach)
+            return (insecureArithmeticVulnerabilities, reentrancyVulnerabilities)
 
     def deploy_and_execute_atkc(self, source_code_without_parameters) -> Tuple[Set[str], str]:
         (coverage, testc_trace, source_code, tx_hash) = self.mfuzzer.run(source_code_without_parameters, 
                                                                          self.bridge,
                                                                          self.privateKey_of_EOAs[self.atkc_deployer_index],
-                                                                         self.testc_address)
+                                                                         self.testc_address,
+                                                                         self.log)
         return (coverage, testc_trace, source_code, tx_hash)
 
     def get_cumulative_coverage(self) -> Set[str]:
@@ -159,15 +165,12 @@ class EthFuzzer:
         self.insecureArithmeticOracle.detect(testc_trace, atkc_source_code, tx_hash)
         self.reentrancyOracle.detect(testc_trace, atkc_source_code, tx_hash)
 
-    def result(self):
-        return (self.insecureArithmeticOracle.get_result(), self.reentrancyOracle.get_result())
+    def get_report(self):
+        return (self.insecureArithmeticOracle.get_report(), self.reentrancyOracle.get_report())
 
     def output_report(self):
-        if self.insecureArithmeticOracle.breach_exists():
-            self.insecureArithmeticOracle.output_report()
-
-        if self.reentrancyOracle.breach_exists():
-            self.reentrancyOracle.output_report()
+        self.insecureArithmeticOracle.output_report()
+        self.reentrancyOracle.output_report()
 
     def end(self): 
         self.ganache.end()

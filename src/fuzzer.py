@@ -205,7 +205,7 @@ class MutationFuzzer:
             coverage.add(str(log['pc']) + '_' + log['op'])
         return coverage
 
-    def run(self, source_code: str, bridge: Bridge, sender_privatekey: str, testc_address: str):
+    def run(self, source_code: str, bridge: Bridge, sender_privatekey: str, testc_address: str, log: bool):
         choosen_seed = self.fuzz()
 
         # filling $PARAMETER_x$ with appropriate variable in choosen_seed
@@ -215,7 +215,8 @@ class MutationFuzzer:
         try:
             (atkc_address, atkc_abi) = bridge.web3_deploy_attacker_contract(sender_privatekey, source_code)
         except Exception as e:
-            print('EVM Runtime Exception in deploy atkc:', e)
+            if log:
+                print('EVM Runtime Exception in deploy atkc:', e)
             return (set(), '', source_code, '')
 
         # Execute atkc
@@ -228,7 +229,8 @@ class MutationFuzzer:
         try:
             tx_hash = bridge.web3_call(atkc_address, sender_privatekey, value)
         except Exception as e:
-            print('EVM Runtime Exception in execute atkc:', e)
+            if log:
+                print('EVM Runtime Exception in execute atkc:', e)
             return (set(), '', source_code, '')
 
         # tracing transaction to get coverage information
