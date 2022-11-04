@@ -1,116 +1,63 @@
-testc_contract_name = 'Bank'
-testc_solidity_version = '0.8.10'
-testc_source_code = """
-pragma solidity 0.8.10;
+from cgi import test
 
-contract Bank {
-	address owner;
-    mapping(address => uint256) public balances;
-	
-    constructor() public {
-        owner = msg.sender;
+testing_contracts = [
+    {
+        'contract_name': 'IntegerOverflowMul',
+        'compiler_version': '0.6.0',
+        'source_code': 'pragma solidity 0.6.0; contract IntegerOverflowMul { uint public count = 2; function run(uint256 input1, uint256 input2) public { count = input1 * input2; }}',
+        'label': {
+            'R': False,
+            'A': True
+        }
+    },
+    {
+        'contract_name': 'IntegerOverflowMulFixed',
+        'compiler_version': '0.8.10',
+        'source_code': 'pragma solidity 0.8.10; contract IntegerOverflowMulFixed { uint public count = 2; function run(uint256 input1, uint256 input2) public { count = input1 * input2; }}',
+        'label': {
+            'R': False,
+            'A': False
+        }
+    },
+    {
+        'contract_name': 'Bank',
+        'compiler_version': '0.8.10',
+        'source_code': 'pragma solidity 0.8.10; contract Bank { address owner; mapping(address => uint256) public balances; constructor() public { owner = msg.sender; } function deposite() public payable { balances[msg.sender] += msg.value; } function withdraw(uint256 amount) public { require(balances[msg.sender] >= amount); msg.sender.call{value: amount}(""); balances[msg.sender] -= amount; } }',
+        'label': {
+            'R': True,
+            'A': False
+        }
+    },
+    {
+        'contract_name': 'BankFixed',
+        'compiler_version': '0.8.10',
+        'source_code': 'pragma solidity 0.8.10; contract BankFixed { address owner; mapping(address => uint256) public balances; constructor() public { owner = msg.sender; } function deposite() public payable { balances[msg.sender] += msg.value; } function withdraw(uint256 amount) public { require(balances[msg.sender] >= amount); balances[msg.sender] -= amount; msg.sender.call{value: amount}(""); } }',
+        'label': {
+            'R': False,
+            'A': False
+        }
     }
+]
 
-	function deposite() public payable {
-        balances[msg.sender] += msg.value;
-    }
+if __name__ == '__main__':
+    from ethfuzzer import EthFuzzer
 
-    function withdraw(uint256 amount) public {
-        require(balances[msg.sender] >= amount);
-        balances[msg.sender] -= amount;   
-        msg.sender.call{value: amount}("");
-    }
-}
-"""
+    for test_contract in testing_contracts:
+        source_code = test_contract['source_code']
+        contract_name = test_contract['contract_name']
+        solidity_version = test_contract['compiler_version']
 
-erc_contract_name = 'LcdToken'
-erc_solidity_version = '0.6.0'
-erc_source_code = """
-pragma solidity 0.6.0;
+        ethFuzzer = EthFuzzer(gfuzz_iteration = 10, mfuzz_iteration = 10, divide_by_zero_detection_disable = True)
+        (insecureArithmeticBreach, reentrancyBreach) = ethFuzzer.run(source_code, contract_name, solidity_version, report_enable = False)
 
-contract LcdToken {
-    string public name = 'Lcd Token';
-    string public symbol = 'lcd';
-    string public standard = 'Lcd Token v1.0';
-    uint256 public totalSupply;
-    
-    event Transfer(
-        address indexed _to,
-        address indexed _from,
-        uint256 _value
-    );
-    
-    event Approval(
-        address indexed _owner,
-        address indexed _spender,
-        uint256 _value
-    );
-    
-    mapping(address => uint256) public balanceOf;
-    mapping(address => mapping(address => uint256)) public allowance;
-    
-    constructor() public {
-        uint _initialSupply = 10000000;
-        balanceOf[msg.sender] = _initialSupply;
-        totalSupply = _initialSupply;
-    }
-    
-    function transfer(address _to, uint256 _value) public returns (bool success) {
-        require(balanceOf[msg.sender] >= _value);
-        
-        balanceOf[msg.sender] -= _value;
-        balanceOf[_to] += _value;
-        
-        emit Transfer(_to, msg.sender, _value);
-        
-        return true;
-    }
-    
-    
-    function approve(address _spender, uint256 _value) public returns (bool success) {
-        allowance[msg.sender][_spender] += _value;
-        
-        emit Approval(msg.sender ,_spender, _value);
-        
-        return true;
-    }
-    
-    
-    function transferFrom(address _from, address _to, uint256 _value) public returns (bool success) {
-        require(_value <= balanceOf[_from]);
-        require(_value <= allowance[_from][msg.sender]);
-        
-        balanceOf[_from] -= _value;
-        balanceOf[_to] += _value;
-        
-        allowance[_from][msg.sender] -= _value;
-        
-        emit Transfer(_from, _to, _value);
-        
-        return true;
-    }   
-}
-"""
+        a: bool = bool(insecureArithmeticBreach)
+        r: bool = bool(reentrancyBreach)
 
-
-overflow_contract_name = 'Overflow'
-overflow_solidity_version = '0.8.0'
-overflow_source_code = """
-pragma solidity 0.8.0;
-
-contract Overflow {
-    uint256 public num;
-    
-    constructor() public {
-        num = 0;
-    }
-    
-    function add() public {
-        num += 1;
-    }
-    
-    function sub() public {
-        num -= 1;
-    }
-}
-"""
+        with open('../result.txt', 'a') as f:
+            f.write('[-] fuzzing {}\n'.format(test_contract['contract_name']))
+            f.write('[-] a: {}, r: {}\n'.format(a, r))
+            if a == test_contract['label']['A'] and r == test_contract['label']['R']:
+                f.write('[-] result: correct\n')
+            else:
+                f.write('[-] result: error\n')
+            f.write('===========================\n')

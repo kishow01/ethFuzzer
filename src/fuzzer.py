@@ -184,13 +184,16 @@ class MutationFuzzer:
         for i in range(len(testc_trace['structLogs'])):
             newLogs.append(testc_trace['structLogs'][i])
             if testc_trace['structLogs'][i]['op'] == 'REVERT':
-                j = i
-                # remove item from i to 0, until log[j]['depth'] < log[i]['depth']
-                while testc_trace['structLogs'][i]['depth'] <= testc_trace['structLogs'][j]['depth']:
-                    if testc_trace['structLogs'][j] in newLogs:
-                        newLogs.remove(testc_trace['structLogs'][j])
-                    j -= 1
-                    if j == 0:
+                # newLogs removes last element, util last element' depth is smaller than revert opcode's depth
+                # or util it reach othor stop opcode with same depth
+                #  level 2:                              ---stop
+                #  level 1:    -------stop         -----|     |---revert
+                #  level 0: --|          |---------|                  |----- (not in new_trace)
+                while newLogs[-1]['depth'] <= testc_trace['structLogs'][i]['depth']:
+                    if (newLogs[-1]['op'] == 'STOP' or newLogs[-1]['op'] == 'RETURN') and newLogs[-1]['depth'] == testc_trace['structLogs'][i]['depth']:
+                        break
+                    newLogs.pop()
+                    if len(newLogs) == 0:
                         new_trace['structLogs'] = []
                         return new_trace
         new_trace['structLogs'] = newLogs

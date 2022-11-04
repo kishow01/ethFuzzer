@@ -16,7 +16,8 @@ class EthFuzzer:
                  atkc_deployer_index: int = 1,
                  scheduler_exponent: int = 3,
                  gfuzz_iteration: int = 100,
-                 mfuzz_iteration: int = 30):
+                 mfuzz_iteration: int = 30,
+                 divide_by_zero_detection_disable: bool = False):
         self.testc_deployer_index = testc_deployer_index
         self.atkc_deployer_index = atkc_deployer_index
         self.gfuzz_iteration = gfuzz_iteration
@@ -34,7 +35,7 @@ class EthFuzzer:
         self.ganache = Ganache()
         self.ganache.start()
 
-        self.insecureArithmeticOracle: InsecureArithmeticOracle = InsecureArithmeticOracle(self.bridge)
+        self.insecureArithmeticOracle: InsecureArithmeticOracle = InsecureArithmeticOracle(self.bridge, divide_by_zero_detection_disable)
         self.reentrancyOracle: ReentrancyOracle = ReentrancyOracle(self.bridge)
 
         with open(DEFAULT_BLOCKCHAIN_KEY_LOCATION) as file:
@@ -76,6 +77,8 @@ class EthFuzzer:
             log: bool = True,
             report_enable: bool = True
             ):
+        insecureArithmeticBreach = []
+        reentrancyBreach = []
         try:
             # create and deploy test contract
             self.create_testc(source_code, contract_name, solidity_version)
@@ -83,7 +86,7 @@ class EthFuzzer:
                 print('[*] test contract deployed at:', self.testc_address)
 
             trail = 0
-            while trail <= self.gfuzz_iteration:
+            while trail < self.gfuzz_iteration:
                 first_run_being_reverted = False
                 if log:
                     print('[-] trail #' + str(trail) + ':', end=' ')
@@ -136,6 +139,8 @@ class EthFuzzer:
             self.output_report()
             # Terminate ganache server, need to create a new ethFuzz object to fuzz other contract.
             self.end()
+
+            return (insecureArithmeticBreach, reentrancyBreach)
 
     def deploy_and_execute_atkc(self, source_code_without_parameters) -> Tuple[Set[str], str]:
         (coverage, testc_trace, source_code, tx_hash) = self.mfuzzer.run(source_code_without_parameters, 

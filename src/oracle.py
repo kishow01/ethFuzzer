@@ -59,8 +59,9 @@ class ReentrancyOracle:
 
 
 class InsecureArithmeticOracle:
-    def __init__(self, bridge: Bridge) -> None:
+    def __init__(self, bridge: Bridge, divide_by_zero_detection_disable) -> None:
         self.bridge: Bridge = bridge
+        self.divide_by_zero_detection_disable = divide_by_zero_detection_disable
         self.breaches = []
 
     def _twos_complement(self, hex_str: str, bits: int = 16):
@@ -90,7 +91,7 @@ class InsecureArithmeticOracle:
                 a = int(trace['stack'][len(trace['stack']) - 1], 16)
                 b = int(trace['stack'][len(trace['stack']) - 2], 16)
                 c = int(next_trace['stack'][len(next_trace['stack']) - 1], 16)
-                if (a != 0) and (c / a != b):
+                if (a != 0) and (c // a != b):
                     self.breaches.append({
                         'event': 'multiplication overflow',
                         'trigger': atkc_source_code,
@@ -111,7 +112,7 @@ class InsecureArithmeticOracle:
                 a = int(trace['stack'][len(trace['stack']) - 1], 16)
                 b = int(trace['stack'][len(trace['stack']) - 2], 16)
 
-                if b == 0:
+                if b == 0 and self.divide_by_zero_detection_disable == False:
                     self.breaches.append({
                         'event': 'division by zero',
                         'trigger': atkc_source_code,
@@ -122,14 +123,13 @@ class InsecureArithmeticOracle:
                 a = int(trace['stack'][len(trace['stack']) - 1], 16)
                 b = int(trace['stack'][len(trace['stack']) - 2], 16)
 
-                if b == 0:
+                if b == 0 and self.divide_by_zero_detection_disable == False:
                     self.breaches.append({
                         'event': 'division by zero',
                         'trigger': atkc_source_code,
                         'transcation': self.bridge.eth_getTransactionByHash(tx_hash),
                         'details': [trace]
                     })
-
     def breach_exists(self):
         return bool(self.breaches)
 
