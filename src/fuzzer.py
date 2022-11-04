@@ -162,10 +162,10 @@ class MutationFuzzer:
             if level_in_testc[current_level]:
                 new_trace['structLogs'].append(log)
 
-            if (log['op'] == 'CALL' or log['op'] == 'CALLCODE' or log['op'] == 'DELEGATECALL') and testc_address_last_4bytes.lower() in log['stack'][len(log['stack']) - 2]:
+            if (log['op'] == 'CALL' or log['op'] == 'CALLCODE' or log['op'] == 'DELEGATECALL') and testc_address_last_4bytes.lower() in log['stack'][-2]:
                 if log['pc'] + 1 != next_log['pc']:
                     level_in_testc[next_log['depth']] = True
-            elif (log['op'] == 'CALL' or log['op'] == 'CALLCODE' or log['op'] == 'DELEGATECALL') and testc_address_last_4bytes.lower() not in log['stack'][len(log['stack']) - 2]:
+            elif (log['op'] == 'CALL' or log['op'] == 'CALLCODE' or log['op'] == 'DELEGATECALL') and testc_address_last_4bytes.lower() not in log['stack'][-2]:
                 level_in_testc[next_log['depth']] = False
 
         return new_trace
