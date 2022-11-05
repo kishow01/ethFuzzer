@@ -32,6 +32,11 @@ class IntMutator:
         self.type = type
 
     def mutate(self, input: int) -> int:
+        if 'uint' == self.type: # uint = uint256
+            return random.randrange(0, pow(2, 256))
+        elif 'int' == self.type: # int = int256
+            return random.randrange(-1 * pow(2, 256 - 1), pow(2, 256 - 1))
+
         if 'uint' in self.type:
             return random.randrange(0, pow(2, int(self.type.replace('uint', ''))))
         elif 'int' in self.type:
