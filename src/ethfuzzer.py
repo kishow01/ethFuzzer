@@ -147,6 +147,79 @@ class EthFuzzer:
 
             return (insecureArithmeticVulnerabilities, reentrancyVulnerabilities)
 
+    def run_without_compile_testc(self, bytecode, abi, contract_name, report_enable: bool = True):
+        insecureArithmeticVulnerabilities = []
+        reentrancyVulnerabilities = []
+        try:
+            # create and deploy test contract
+            (self.testc_address, self.testc_abi) = self.bridge.web3_direct_deploy_testc(abi, bytecode, self.privateKey_of_EOAs[self.testc_deployer_index])
+            self.reentrancyOracle.setting("empty", contract_name, self.testc_address)
+            self.insecureArithmeticOracle.setting("empty", contract_name, self.testc_address)
+            self.testc_opcode_number = get_opcode_number(self.bridge.web3_getCode(self.testc_address).hex())
+
+
+            if self.log:
+                print('[*] test contract deployed at:', self.testc_address)
+
+            trail = 0
+            while trail < self.gfuzz_iteration:
+                first_run_being_reverted = False
+                if self.log:
+                    print('[-] trail #' + str(trail) + ':', end=' ')
+                
+                # create atk contract and initialize variable
+                (variables, source_code_without_parameters) = self.create_atkc_via_gfuzz()
+                self.init_mfuzzer(variables)
+
+                # deploy atk contract and execute it by atkc_deployer
+                for step in range(0, self.mfuzzer_iteration):
+                    (coverage, testc_trace, atkc_source_code, tx_hash) = self.deploy_and_execute_atkc(source_code_without_parameters)
+                    if step == 0 and coverage == set():
+                        # if first run is reverted, then discard this atk contract and this trail do count
+                        first_run_being_reverted = True
+                        break
+
+                    if coverage != set():
+                        self.oracle_detect(testc_trace, atkc_source_code, tx_hash)
+
+                    if self.log:
+                        print('.', end='', flush=True)
+                if self.log:
+                    print('')
+
+                # calculate overall coverage(cumulative_coverage)
+                cumulative_coverage = self.get_cumulative_coverage()
+                self.testc_coverage |= cumulative_coverage
+                if self.log:
+                    print('[-] trail #' + str(trail) + ' coverage:', len(cumulative_coverage) / self.testc_opcode_number)
+                    print('[=] testc_coverage so far:', len(self.testc_coverage) / self.testc_opcode_number)
+
+                if first_run_being_reverted == False:
+                    trail += 1
+            if self.log:
+                print('[*] final testc_coverage:', len(self.testc_coverage) / self.testc_opcode_number)
+
+            # Summary
+            (insecureArithmeticReport, reentrancyReport) = self.get_report()
+            insecureArithmeticVulnerabilities = insecureArithmeticReport['vulnerabilities']
+            reentrancyVulnerabilities = reentrancyReport['vulnerabilities']
+
+            print('[*] found {} vulnerailities in InsecureArithmeticOracle'.format(len(insecureArithmeticReport['vulnerabilities'])))
+            print('[*] found {} vulnerailities in ReentrancyOracle'.format(len(reentrancyReport['vulnerabilities'])))
+
+            if report_enable:
+                if self.log:
+                    print('[*] output report')
+                self.output_report()
+        except Exception as e:
+            if self.log:
+                print('EthFuzzer Exception:', e)
+        finally:
+            # Terminate ganache server, need to create a new ethFuzz object to fuzz other contract.
+            self.end()
+
+            return (insecureArithmeticVulnerabilities, reentrancyVulnerabilities)
+
     def deploy_and_execute_atkc(self, source_code_without_parameters) -> Tuple[Set[str], str]:
         (coverage, testc_trace, source_code, tx_hash) = self.mfuzzer.run(source_code_without_parameters, 
                                                                          self.bridge,

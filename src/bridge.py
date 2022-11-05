@@ -72,6 +72,31 @@ class Bridge:
         self.testc_address = tx_receipt.contractAddress
 
         return (tx_receipt.contractAddress, testc_abi)
+    
+    def web3_direct_deploy_testc(self, testc_abi, testc_bytecode, sender_privateKey):
+        contract = self.w3.eth.contract(abi = testc_abi, bytecode = testc_bytecode)
+        testc_deployer_acct = self.w3.eth.account.privateKeyToAccount(sender_privateKey)
+
+        constructor_abi = [abi for abi in testc_abi if abi['type'] == 'constructor']
+
+        if len(constructor_abi) and constructor_abi[0]['stateMutability'] == 'payable':
+            value = ether_to_wei(50)
+        else:
+            value = 0
+
+        tx = contract.constructor().buildTransaction({
+            'value': value,
+            'from': testc_deployer_acct.address,
+            'nonce': self.w3.eth.get_transaction_count(testc_deployer_acct.address)
+        })
+
+        tx_signed = self.w3.eth.account.sign_transaction(tx, testc_deployer_acct.privateKey)
+        tx_hash = self.w3.eth.send_raw_transaction(tx_signed.rawTransaction)
+        tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
+
+        self.testc_address = tx_receipt.contractAddress
+
+        return (tx_receipt.contractAddress, testc_abi)
 
     def web3_deploy_attacker_contract(self, 
                                       sender_privatekey: str,
