@@ -3,3 +3,9 @@ EthFuzzer is a fuzzing tool for Ethereum's smart contract. unlike other smart co
 
 ## prerequisite
 1. ``ganache-cli``
+
+## How to Use
+```
+cd src
+python3 main.py
+```
