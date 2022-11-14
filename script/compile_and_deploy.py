@@ -44,3 +44,4 @@ tx_hash = w3.eth.send_raw_transaction(tx_signed.rawTransaction)
 tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
 
 print('contract deployed at', tx_receipt.contractAddress)
+print('abi:', abi)

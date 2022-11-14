@@ -87,16 +87,20 @@ class EthFuzzer:
             if self.consolelog_enable:
                 print('[*] test contract deployed at:', self.testc_address)
 
-            self.logger.setting(source_code, contract_name, self.testc_address)
-            return self.run(self.testc_address, self.testc_abi, report_enable)
+            return self.run(self.testc_address, self.testc_abi, source_code, contract_name, report_enable)
         except Exception as e:
             if self.consolelog_enable:
                 print('EthFuzzer Exception in compile and deploy:', e)
         
 
-    def run(self, testc_address, testc_abi, report_enable: bool = True):
+    def run(self, testc_address, testc_abi, source_code = '', contract_name = '', report_enable: bool = True):
         insecureArithmeticVulnerabilities = []
         reentrancyVulnerabilities = []
+
+        self.testc_address = testc_address
+        self.testc_abi = testc_abi
+
+        self.logger.setting(source_code, contract_name, self.testc_address)
 
         # overwrite if using main.py
         self.logger.report['testc_address'] = testc_address
