@@ -1,14 +1,14 @@
 if __name__ == '__main__':
     from ethfuzzer import EthFuzzer
-    from dataset import POC_dataset
+    from dataset import SB_Curated_dataset
 
-    for test_contract in POC_dataset:
-        source_code = test_contract['source_code']
+    for test_contract in SB_Curated_dataset:
         contract_name = test_contract['contract_name']
-        solidity_version = test_contract['compiler_version']
-
-        ethFuzzer = EthFuzzer(gfuzz_iteration = 30, mfuzz_iteration = 30, divide_by_zero_detection_disable = True)
-        (insecureArithmeticVulnerabilities, reentrancyVulnerabilities) = ethFuzzer.run(source_code, contract_name, solidity_version)
+        bytecode = test_contract['bytecode']
+        abi = test_contract['abi']
+        
+        ethFuzzer = EthFuzzer(gfuzz_iteration = 1, mfuzz_iteration = 1, divide_by_zero_detection_disable = True)
+        (insecureArithmeticVulnerabilities, reentrancyVulnerabilities) = ethFuzzer.run_without_compile_testc(bytecode, abi, contract_name)
 
         a: bool = bool(insecureArithmeticVulnerabilities)
         r: bool = bool(reentrancyVulnerabilities)
@@ -21,3 +21,4 @@ if __name__ == '__main__':
             else:
                 f.write('[-] result: error\n')
             f.write('===========================\n')
+    
