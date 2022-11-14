@@ -29,12 +29,18 @@ python3 main.py
 
 
 ## Proof of Concept Testing
+### step 1. Start ganache private chain in *How to Use* Chapter
+
+### step 2. run script
 ```
 cd ethFuzzer/src
 python3 test.py
 ```
 
 ## Evalutaion with dataset
+### step 1. Start ganache private chain in *How to Use* Chapter
+
+### step 2. run script
 ```
 cd ethFuzzer/src
 python3 evaluation.py
