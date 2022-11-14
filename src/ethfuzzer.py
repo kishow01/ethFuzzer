@@ -1,6 +1,7 @@
 import os
 import json
 from typing import Tuple, List, Set
+import random
 
 from bridge import Bridge
 from fuzzer import GrammarFuzzer, MutationFuzzer
@@ -14,14 +15,12 @@ from util import DEFAULT_BLOCKCHAIN_KEY_LOCATION, get_opcode_number
 class EthFuzzer:
     def __init__(self, 
                  testc_deployer_index: int = 0,
-                 atkc_deployer_index: int = 1,
                  scheduler_exponent: int = 3,
                  gfuzz_iteration: int = 100,
                  mfuzz_iteration: int = 30,
                  divide_by_zero_detection_disable: bool = False,
                  consolelog_enable: bool = True):
         self.testc_deployer_index = testc_deployer_index
-        self.atkc_deployer_index = atkc_deployer_index
         self.gfuzz_iteration = gfuzz_iteration
         self.mfuzzer_iteration = mfuzz_iteration
         self.consolelog_enable = consolelog_enable
@@ -167,9 +166,10 @@ class EthFuzzer:
             return (insecureArithmeticVulnerabilities, reentrancyVulnerabilities)
 
     def deploy_and_execute_atkc(self, source_code_without_parameters) -> Tuple[Set[str], str]:
+        atkc_deployer_index = random.randrange(0, len(self.privateKey_of_EOAs))
         (coverage, testc_trace, source_code, tx_hash) = self.mfuzzer.run(source_code_without_parameters, 
                                                                          self.bridge,
-                                                                         self.privateKey_of_EOAs[self.atkc_deployer_index],
+                                                                         self.privateKey_of_EOAs[atkc_deployer_index],
                                                                          self.testc_address,
                                                                          self.consolelog_enable)
         return (coverage, testc_trace, source_code, tx_hash)

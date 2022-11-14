@@ -7,7 +7,7 @@ if __name__ == '__main__':
         bytecode = test_contract['bytecode']
         abi = test_contract['abi']
         
-        ethFuzzer = EthFuzzer(gfuzz_iteration = 10, mfuzz_iteration = 5, divide_by_zero_detection_disable = True)
+        ethFuzzer = EthFuzzer(gfuzz_iteration = 30, mfuzz_iteration = 30, divide_by_zero_detection_disable = True)
         (insecureArithmeticVulnerabilities, reentrancyVulnerabilities) = ethFuzzer.start('', '', '', bytecode, abi)
 
         a: bool = bool(insecureArithmeticVulnerabilities)
