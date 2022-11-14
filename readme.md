@@ -20,12 +20,13 @@ there are some helper scripts in ethFuzzer/script directory.
 + you can put you bytecode and abi in ``contract_bytecode.py``, and use ``python3 deploy.py`` to deploy your testing contract in blockchain, also, you will get contract address and abi in script's output as well.
 
 ### step 3. Start fuzzing
+**Edit ``main.py`` with appropriate testc_address and abi**, then use that script for fuzzing.
+
 ```
 cd ethFuzzer/src
 python3 main.py
 ```
 
-the ``main.py`` script need testing contract address and abi for fuzzing.
 
 ## Proof of Concept Testing
 ```

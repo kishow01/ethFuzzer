@@ -65,7 +65,7 @@ class EthFuzzer:
         self.mfuzzer = MutationFuzzer(seed, self.scheduler, self.checksum_address_list, self.bridge.w3.toChecksumAddress)
         self.mfuzzer.initialize_all_variable_within_seed()
 
-    def run(self, 
+    def start(self, 
             source_code: str,
             contract_name: str,
             compiler_version: str,
@@ -73,8 +73,6 @@ class EthFuzzer:
             abi = '',
             report_enable: bool = True
             ):
-        insecureArithmeticVulnerabilities = []
-        reentrancyVulnerabilities = []
         try:
             # create and deploy test contract
             if bytecode == '':
@@ -86,11 +84,26 @@ class EthFuzzer:
             self.testc_address = self.bridge.web3_deploy_test_contract(self.privateKey_of_EOAs[self.testc_deployer_index],
                                                                        self.testc_abi, testc_bytecode)
 
-            self.logger.setting(source_code, contract_name, self.testc_address)
-            self.testc_opcode_number = get_opcode_number(self.bridge.web3_getCode(self.testc_address).hex())
-
             if self.consolelog_enable:
                 print('[*] test contract deployed at:', self.testc_address)
+
+            self.logger.setting(source_code, contract_name, self.testc_address)
+            return self.run(self.testc_address, self.testc_abi, report_enable)
+        except Exception as e:
+            if self.consolelog_enable:
+                print('EthFuzzer Exception in compile and deploy:', e)
+        
+
+    def run(self, testc_address, testc_abi, report_enable: bool = True):
+        insecureArithmeticVulnerabilities = []
+        reentrancyVulnerabilities = []
+
+        # overwrite if using main.py
+        self.logger.report['testc_address'] = testc_address
+        self.testc_abi = testc_abi
+
+        try:
+            self.testc_opcode_number = get_opcode_number(self.bridge.web3_getCode(self.testc_address).hex())
 
             trail = 0
             while trail < self.gfuzz_iteration:
@@ -145,7 +158,7 @@ class EthFuzzer:
                 self.logger.output_report()
         except Exception as e:
             if self.consolelog_enable:
-                print('EthFuzzer Exception:', e)
+                print('EthFuzzer Exception in fuzzing:', e)
         finally:
             return (insecureArithmeticVulnerabilities, reentrancyVulnerabilities)
 

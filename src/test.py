@@ -8,7 +8,7 @@ if __name__ == '__main__':
         solidity_version = test_contract['compiler_version']
 
         ethFuzzer = EthFuzzer(gfuzz_iteration = 10, mfuzz_iteration = 10, divide_by_zero_detection_disable = True)
-        (insecureArithmeticVulnerabilities, reentrancyVulnerabilities) = ethFuzzer.run(source_code, contract_name, solidity_version)
+        (insecureArithmeticVulnerabilities, reentrancyVulnerabilities) = ethFuzzer.start(source_code, contract_name, solidity_version)
 
         a: bool = bool(insecureArithmeticVulnerabilities)
         r: bool = bool(reentrancyVulnerabilities)
