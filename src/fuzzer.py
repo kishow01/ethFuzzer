@@ -6,7 +6,6 @@ import re
 from util import szabo_to_wei, finney_to_wei
 from type import Option, Expansion, Grammar, DerivationTree
 from mutator import DeletionMutator, InsertionMutator, FlipMutator, AddressMutator, IntMutator
-from blockchain import Ganache
 from scheduler import Scheduler, Seed
 from bridge import Bridge
 from grammar import SOLIDITY_GRAMMAR

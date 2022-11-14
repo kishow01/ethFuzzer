@@ -1,7 +1,7 @@
+import os
 import json
 from typing import Tuple, List, Set
 
-from blockchain import Ganache
 from bridge import Bridge
 from fuzzer import GrammarFuzzer, MutationFuzzer
 from scheduler import Variable, Seed, Scheduler
@@ -29,18 +29,20 @@ class EthFuzzer:
         self.testc_coverage = set()
 
         self.bridge: Bridge = Bridge()
+        if not self.bridge.w3.isConnected():
+            raise ConnectionError('Can not connect to blockchain, try ganache-cli for starting your own private chain')
+
         self.linker: Linker = Linker()
         self.gfuzzer: GrammarFuzzer = GrammarFuzzer(SOLIDITY_GRAMMAR)
         self.mfuzzer: MutationFuzzer = None
         self.scheduler: Scheduler = Scheduler(scheduler_exponent)
         self.logger: Logger = Logger(self.bridge)
 
-        # Start ganache server and read key.json
-        self.ganache = Ganache()
-        self.ganache.start()
-
         self.insecureArithmeticOracle: InsecureArithmeticOracle = InsecureArithmeticOracle(self.logger, divide_by_zero_detection_disable)
         self.reentrancyOracle: ReentrancyOracle = ReentrancyOracle(self.logger)
+
+        if not os.path.exists(DEFAULT_BLOCKCHAIN_KEY_LOCATION):
+            raise FileNotFoundError('No keys.json in blockchain directory')
 
         with open(DEFAULT_BLOCKCHAIN_KEY_LOCATION) as file:
             accounts = json.load(file)
@@ -49,18 +51,6 @@ class EthFuzzer:
         self.checksum_address_list = [self.bridge.w3.toChecksumAddress(address) for address in accounts['private_keys'].keys()]
         self.privateKey_of_EOAs = [accounts['private_keys'][pubKey] for pubKey in self.address_list]
         
-    def create_testc(self,
-                     source_code: str,
-                     contract_name: str,
-                     compiler_version: str):
-        """Compile and deploy smart contract that need to be tested, 'testc' stands for test contract"""
-        (self.testc_address, self.testc_abi) = self.bridge.web3_deploy_test_contract(self.privateKey_of_EOAs[self.testc_deployer_index],
-                                                                                     source_code,
-                                                                                     contract_name,
-                                                                                     compiler_version)
-        self.logger.setting(source_code, contract_name, self.testc_address)
-        self.testc_opcode_number = get_opcode_number(self.bridge.web3_getCode(self.testc_address).hex())
-
 
     def create_atkc_via_gfuzz(self) -> Tuple[List[Variable], str]:
         """Create attacker contract via grammar-based fuzzing, atkc stands for attack contract"""
@@ -78,14 +68,27 @@ class EthFuzzer:
     def run(self, 
             source_code: str,
             contract_name: str,
-            solidity_version: str,
+            compiler_version: str,
+            bytecode: str = '',
+            abi = '',
             report_enable: bool = True
             ):
         insecureArithmeticVulnerabilities = []
         reentrancyVulnerabilities = []
         try:
             # create and deploy test contract
-            self.create_testc(source_code, contract_name, solidity_version)
+            if bytecode == '':
+                (self.testc_abi, testc_bytecode) = self.bridge.web3_compile_test_contract(source_code, contract_name, compiler_version)
+            else:
+                testc_bytecode = bytecode
+                self.testc_abi = abi
+
+            self.testc_address = self.bridge.web3_deploy_test_contract(self.privateKey_of_EOAs[self.testc_deployer_index],
+                                                                       self.testc_abi, testc_bytecode)
+
+            self.logger.setting(source_code, contract_name, self.testc_address)
+            self.testc_opcode_number = get_opcode_number(self.bridge.web3_getCode(self.testc_address).hex())
+
             if self.consolelog_enable:
                 print('[*] test contract deployed at:', self.testc_address)
 
@@ -143,82 +146,7 @@ class EthFuzzer:
         except Exception as e:
             if self.consolelog_enable:
                 print('EthFuzzer Exception:', e)
-        finally: 
-            # Terminate ganache server, need to create a new ethFuzz object to fuzz other contract.
-            self.end()
-
-            return (insecureArithmeticVulnerabilities, reentrancyVulnerabilities)
-
-    def run_without_compile_testc(self, bytecode, abi, contract_name, report_enable: bool = True):
-        insecureArithmeticVulnerabilities = []
-        reentrancyVulnerabilities = []
-        try:
-            # create and deploy test contract
-            (self.testc_address, self.testc_abi) = self.bridge.web3_direct_deploy_testc(abi, bytecode, self.privateKey_of_EOAs[self.testc_deployer_index])
-
-            self.logger.setting('none', contract_name, self.testc_address)
-            self.testc_opcode_number = get_opcode_number(self.bridge.web3_getCode(self.testc_address).hex())
-
-            if self.consolelog_enable:
-                print('[*] test contract deployed at:', self.testc_address)
-
-            trail = 0
-            while trail < self.gfuzz_iteration:
-                first_run_being_reverted = False
-                if self.consolelog_enable:
-                    print('[-] trail #' + str(trail) + ':', end=' ')
-                
-                # create atk contract and initialize variable
-                (variables, source_code_without_parameters) = self.create_atkc_via_gfuzz()
-                self.init_mfuzzer(variables)
-
-                # deploy atk contract and execute it by atkc_deployer
-                for step in range(0, self.mfuzzer_iteration):
-                    (coverage, testc_trace, atkc_source_code, tx_hash) = self.deploy_and_execute_atkc(source_code_without_parameters)
-                    if step == 0 and coverage == set():
-                        # if first run is reverted, then discard this atk contract and this trail do count
-                        first_run_being_reverted = True
-                        break
-
-                    if coverage != set():
-                        self.oracle_detect(testc_trace, atkc_source_code, tx_hash)
-
-                    if self.consolelog_enable:
-                        print('.', end='', flush=True)
-                if self.consolelog_enable:
-                    print('')
-
-                # calculate overall coverage(cumulative_coverage)
-                cumulative_coverage = self.get_cumulative_coverage()
-                self.testc_coverage |= cumulative_coverage
-                if self.consolelog_enable:
-                    print('[-] trail #' + str(trail) + ' coverage:', len(cumulative_coverage) / self.testc_opcode_number)
-                    print('[=] testc_coverage so far:', len(self.testc_coverage) / self.testc_opcode_number)
-
-                if first_run_being_reverted == False:
-                    trail += 1
-            if self.consolelog_enable:
-                print('[*] final testc_coverage:', len(self.testc_coverage) / self.testc_opcode_number)
-
-           # Summary
-            report = self.logger.get_report()
-            insecureArithmeticVulnerabilities = report['vulnerabilities']['arithmetic']
-            reentrancyVulnerabilities = report['vulnerabilities']['reentrancy']
-
-            print('[*] found {} vulnerailities in InsecureArithmeticOracle'.format(len(insecureArithmeticVulnerabilities)))
-            print('[*] found {} vulnerailities in ReentrancyOracle'.format(len(reentrancyVulnerabilities)))
-
-            if report_enable:
-                if self.consolelog_enable:
-                    print('[*] output report')
-                self.logger.output_report()
-        except Exception as e:
-            if self.consolelog_enable:
-                print('EthFuzzer Exception:', e)
         finally:
-            # Terminate ganache server, need to create a new ethFuzz object to fuzz other contract.
-            self.end()
-
             return (insecureArithmeticVulnerabilities, reentrancyVulnerabilities)
 
     def deploy_and_execute_atkc(self, source_code_without_parameters) -> Tuple[Set[str], str]:

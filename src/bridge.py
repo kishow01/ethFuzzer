@@ -34,14 +34,10 @@ class Bridge:
     ###############################################################
     #                           web3.py                           #
     ###############################################################
-    def web3_deploy_test_contract(self, 
-                                  sender_privateKey: str,
-                                  source_code: str,
-                                  contract_name: str,
-                                  compiler_version: str) -> Tuple[str, List]:
-        """Compile and deploy given contract and return its contract address and abi"""
-
-        # check given compiler's version is in range
+    def web3_compile_test_contract(self, 
+                                   source_code: str,
+                                   contract_name: str,
+                                   compiler_version: str):
         assert compiler_version in SUPPORTED_COMPILER_VERSION, 'GIVEN COMPILER VERSION NOT SUPPORTTED'
         install_solc(compiler_version)
 
@@ -49,6 +45,13 @@ class Bridge:
         testc_abi = tmp['<stdin>:' + contract_name]['abi']
         testc_bytecode = tmp['<stdin>:' + contract_name]['bin']
 
+        return (testc_abi, testc_bytecode)
+
+
+    def web3_deploy_test_contract(self, 
+                                  sender_privateKey: str,
+                                  testc_abi, 
+                                  testc_bytecode):
         contract = self.w3.eth.contract(abi = testc_abi, bytecode = testc_bytecode)
         testc_deployer_acct = self.w3.eth.account.privateKeyToAccount(sender_privateKey)
 
@@ -71,7 +74,7 @@ class Bridge:
 
         self.testc_address = tx_receipt.contractAddress
 
-        return (tx_receipt.contractAddress, testc_abi)
+        return tx_receipt.contractAddress
     
     def web3_direct_deploy_testc(self, testc_abi, testc_bytecode, sender_privateKey):
         contract = self.w3.eth.contract(abi = testc_abi, bytecode = testc_bytecode)

@@ -7,8 +7,8 @@ if __name__ == '__main__':
         bytecode = test_contract['bytecode']
         abi = test_contract['abi']
         
-        ethFuzzer = EthFuzzer(gfuzz_iteration = 1, mfuzz_iteration = 1, divide_by_zero_detection_disable = True)
-        (insecureArithmeticVulnerabilities, reentrancyVulnerabilities) = ethFuzzer.run_without_compile_testc(bytecode, abi, contract_name)
+        ethFuzzer = EthFuzzer(gfuzz_iteration = 10, mfuzz_iteration = 5, divide_by_zero_detection_disable = True)
+        (insecureArithmeticVulnerabilities, reentrancyVulnerabilities) = ethFuzzer.run('', '', '', bytecode, abi)
 
         a: bool = bool(insecureArithmeticVulnerabilities)
         r: bool = bool(reentrancyVulnerabilities)
