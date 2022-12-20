@@ -63,6 +63,7 @@ class Bridge:
             value = 0
 
         tx = contract.constructor().buildTransaction({
+            'gasPrice': self.w3.eth.gas_price,
             'value': value,
             'from': testc_deployer_acct.address,
             'nonce': self.w3.eth.get_transaction_count(testc_deployer_acct.address)
@@ -88,6 +89,7 @@ class Bridge:
             value = 0
 
         tx = contract.constructor().buildTransaction({
+            'gasPrice': self.w3.eth.gas_price,
             'value': value,
             'from': testc_deployer_acct.address,
             'nonce': self.w3.eth.get_transaction_count(testc_deployer_acct.address)
@@ -114,6 +116,7 @@ class Bridge:
         acct = self.w3.eth.account.privateKeyToAccount(sender_privatekey)
 
         tx = contract.constructor().buildTransaction({
+            'gasPrice': self.w3.eth.gas_price,
             'from': acct.address,
             'nonce': self.w3.eth.get_transaction_count(acct.address)
         })
