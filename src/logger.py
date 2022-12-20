@@ -15,6 +15,7 @@ class Logger:
         self.report['source_code'] = testc_source_code
         self.report['contract_name'] = testc_contract_name
         self.report['testc_address'] = testc_address
+        self.report['coverage'] = 0.0
         self.report['vulnerabilities'] = {
             'reentrancy': {},
             'arithmetic': {}
@@ -44,6 +45,9 @@ class Logger:
             'trigger': [trace],
             'details': testc_trace
         }
+    
+    def update_coverage(self, cov: int):
+        self.report['coverage'] = cov
 
     def get_report(self):
         return self.report

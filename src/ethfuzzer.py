@@ -145,6 +145,7 @@ class EthFuzzer:
                     trail += 1
             if self.consolelog_enable:
                 print('[*] final testc_coverage:', len(self.testc_coverage) / self.testc_opcode_number)
+            self.logger.update_coverage(len(self.testc_coverage) / self.testc_opcode_number)
 
             # Summary
             report = self.logger.get_report()
